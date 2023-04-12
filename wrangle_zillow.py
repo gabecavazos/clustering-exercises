@@ -2,7 +2,7 @@
 
 ##################################################Wrangle.py###################################################
 
-import os
+importimport os
 import pandas as pd
 import numpy as np
 
@@ -141,6 +141,44 @@ def summarize(df):
     print('nulls in dataframe by row: ')
     print(nulls_by_row(df))
     print('=====================================================')
+
+    
+    
+def missing_value_summary(df):
+    """
+    Given a pandas DataFrame `df`, returns a summary of missing values for each column in the DataFrame.
+    Returns a new DataFrame where each row represents an attribute name, the first column is the number of rows
+    with missing values for that attribute, and the second column is the percentage of total rows that have
+    missing values for that attribute.
+    """
+    num_rows = df.shape[0]
+    missing_counts = df.isnull().sum()
+    missing_percents = (missing_counts / num_rows) * 100
+    summary_df = pd.concat([missing_counts, missing_percents], axis=1)
+    summary_df.columns = ["Num Missing", "Percent Missing"]
+    summary_df.sort_values("Num Missing", ascending=False, inplace=True)
+    return summary_df
+
+
+
+
+#def handle_missing_values(df, prop_required_column=0.7, prop_required_row=0.7):
+#   """
+#   Given a pandas DataFrame `df`, a proportion `prop_required_column` of non-missing values required to keep a column, and
+#   a proportion `prop_required_row` of non-missing values required to keep a row, drops columns and rows based on the
+#   specified proportions of missing values.
+#   """
+#   # drop columns with too many missing values
+#   threshold = int(round(prop_required_column * len(df.index), 0))
+#   df.dropna(axis=1, thresh=threshold, inplace=True)
+#   
+#   # drop rows with too many missing values
+#   threshold = int(round(prop_required_row * len(df.columns), 0))
+#   df.dropna(axis=0, thresh=threshold, inplace=True)
+#   
+#   return df
+
+
 
 #**************************************************Distributions*******************************************************
 
@@ -460,7 +498,7 @@ def plot_residuals(y, yhat):
 def scale_data(train, 
                validate, 
                test, 
-               columns_to_scale=['bedrooms', 'bathrooms', 'tax_value'],
+               columns_to_scale=['age', 'bathrooms', 'tax_value'],
                return_scaler=False):
     '''
     Scales the 3 data splits. 
@@ -490,6 +528,5 @@ def scale_data(train,
         return scaler, train_scaled, validate_scaled, test_scaled
     else:
         return train_scaled, validate_scaled, test_scaled
-    
     
     
