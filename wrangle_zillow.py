@@ -2,7 +2,7 @@
 
 ##################################################Wrangle.py###################################################
 
-importimport os
+import os
 import pandas as pd
 import numpy as np
 
@@ -29,15 +29,38 @@ def acquire_zillow():
 
         url = f"mysql+pymysql://{user}:{password}@{host}/zillow"
 
-        query = """
-
-        SELECT bedroomcnt, bathroomcnt, calculatedfinishedsquarefeet, taxvaluedollarcnt, yearbuilt, taxamount, fips
-        FROM properties_2017
-
-        LEFT JOIN propertylandusetype USING(propertylandusetypeid)
-
-        WHERE propertylandusedesc IN ("Single Family Residential",                       
-                                      "Inferred Single Family Residential")"""
+        query = '''
+SELECT
+    prop.*,
+    predictions_2017.logerror,
+    predictions_2017.transactiondate,
+    air.airconditioningdesc,
+    arch.architecturalstyledesc,
+    build.buildingclassdesc,
+    heat.heatingorsystemdesc,
+    landuse.propertylandusedesc,
+    story.storydesc,
+    construct.typeconstructiondesc
+FROM properties_2017 prop
+JOIN (
+    SELECT parcelid, MAX(transactiondate) AS max_transactiondate
+    FROM predictions_2017
+    GROUP BY parcelid
+) pred USING(parcelid)
+JOIN predictions_2017 ON pred.parcelid = predictions_2017.parcelid
+                      AND pred.max_transactiondate = predictions_2017.transactiondate
+                      -- everything else from here will be a left join, as we have the data set at the size we want and we dont want to make it smaller by reducing it based on missing columns in the following:
+LEFT JOIN airconditioningtype air USING (airconditioningtypeid)
+LEFT JOIN architecturalstyletype arch USING (architecturalstyletypeid)
+LEFT JOIN buildingclasstype build USING (buildingclasstypeid)
+LEFT JOIN heatingorsystemtype heat USING (heatingorsystemtypeid)
+LEFT JOIN propertylandusetype landuse USING (propertylandusetypeid)
+LEFT JOIN storytype story USING (storytypeid)
+LEFT JOIN typeconstructiontype construct USING (typeconstructiontypeid)
+WHERE prop.latitude IS NOT NULL
+  AND prop.longitude IS NOT NULL
+  AND transactiondate <= '2017-12-31'
+'''
 
         # get dataframe of data
         df = pd.read_sql(query, url)
@@ -322,12 +345,35 @@ def add_upper_outlier_columns(df, k):
 #**************************************************Wrangle*******************************************************
 
 
-def wrangle_zillow():
+def wrangle_zillow1():
     '''Acquire and prepare data from Zillow database for explore'''
     train, validate, test = prepare_zillow(acquire_zillow())
     
     return train, validate, test
 
+def wrangle_zillow():
+    '''
+    acquires, gives summary statistics, and handles missing values contingent on
+    the desires of the zillow data we wish to obtain.
+    parameters: none
+    return: single pandas dataframe, df
+    '''
+    # grab the data:
+    df = acquire_zillow()
+    # summarize and peek at the data:
+    overview(df)
+    nulls_by_columns(df).sort_values(by='percent')
+    nulls_by_rows(df)
+    # task for you to decide: ;)
+    # determine what you want to categorize as a single unit property.
+    # maybe use df.propertylandusedesc.unique() to get a list, narrow it down with domain knowledge,
+    # then pull something like this:
+    # df.propertylandusedesc = df.propertylandusedesc.apply(lambda x: x if x in my_list_of_single_unit_types else np.nan)
+    # In our second iteration, we will tune the proportion and e:
+    df = handle_missing_values(df, prop_required_column=.5, prop_required_row=.5)
+    # take care of any duplicates:
+    df = df.drop_duplicates()
+    return df
 #**************************************** probably too much and redundant because I put most of this in evaluate*********************************************************
 
 
